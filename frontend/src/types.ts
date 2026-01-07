@@ -1,20 +1,34 @@
+export type SKUId = 'apple' | 'bread'
+
 export type GameState = {
-  gold: number
+  cash: number
+  inventory: Record<SKUId, number>
+  customer: {
+    lastTickAt: string
+    ratePerMinute: number
+    carry: number
+  }
+  stats: {
+    sold: Record<SKUId, number>
+    revenue: number
+    cost: number
+  }
 }
 
 export type SaveResponse = {
   state: GameState
   version: number
   serverTime: string
-  lastSeenAt: string
+  lastSeenAt: string | null
 }
 
 export type OpRequest = {
   opId: string
   baseVersion: number
-  type: 'add_gold'
+  type: 'restock'
   payload: {
-    amount: number
+    skuId: SKUId
+    qty: number
   }
 }
 

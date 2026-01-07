@@ -6,12 +6,13 @@ import type { SaveResponse } from '../types/http.js';
 export const saveRoutes: FastifyPluginAsync = async (app) => {
     app.get('/save', async (req, reply) => {
         try {
-            const save = await getSave(DEMO_USER_ID);
+            const now = new Date();
+            const save = await getSave(DEMO_USER_ID, now);
 
             const response: SaveResponse = {
                 state: save.state,
                 version: save.version,
-                serverTime: new Date().toISOString(),
+                serverTime: now.toISOString(),
                 lastSeenAt: save.lastSeenAt,
             };
 
