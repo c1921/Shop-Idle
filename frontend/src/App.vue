@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { getAuthToken, setAuthToken } from './auth'
 import { fetchSave, postOp } from './api'
 import type { GameState, SKUId } from './types'
 import HeaderBar from './components/HeaderBar.vue'
@@ -19,6 +20,9 @@ const serverState = ref<GameState | null>(null)
 const serverVersion = ref<number | null>(null)
 const serverTime = ref<string | null>(null)
 const lastSeenAt = ref<string | null>(null)
+const authToken = ref<string | null>(getAuthToken())
+const loginUrl = '/api/auth/linuxdo/login'
+const isAuthed = computed(() => Boolean(authToken.value))
 
 const restockQty = ref<Record<SKUId, number>>({
   apple: 1,
@@ -51,6 +55,12 @@ const isInsufficientCash = (skuId: SKUId) => {
 
 const loadSave = async (options: { silent?: boolean } = {}) => {
   const silent = options.silent === true
+  if (!authToken.value) {
+    if (!silent) {
+      uiMessage.value = 'Please log in to load your save.'
+    }
+    return
+  }
   if (silent) {
     isRefreshing.value = true
   } else {
@@ -117,6 +127,13 @@ let refreshTimer: number | undefined
 
 onMounted(() => {
   setTimeout(() => window.HSStaticMethods.autoInit(), 100)
+  const params = new URLSearchParams(window.location.search)
+  const token = params.get('token')
+  if (token) {
+    setAuthToken(token)
+    authToken.value = token
+    window.history.replaceState({}, '', '/')
+  }
   void loadSave()
   refreshTimer = window.setInterval(() => {
     if (document.hidden || isRefreshing.value || isSubmitting.value || isLoading.value) {
@@ -136,6 +153,16 @@ onUnmounted(() => {
 <template>
   <main class="min-h-screen bg-base-100 text-base-content">
     <div class="mx-auto flex w-full max-w-5xl flex-col gap-6 px-6 pb-12 pt-8">
+      <div v-if="!isAuthed" class="rounded-box border border-base-300 bg-base-200 p-4">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 class="text-lg font-semibold">Login required</h2>
+            <p class="text-sm opacity-80">Use LinuxDO Connect to load and save your progress.</p>
+          </div>
+          <a class="btn btn-primary" :href="loginUrl">Login with LinuxDO</a>
+        </div>
+      </div>
+
       <HeaderBar :is-loading="isLoading" :server-version="serverVersion" @refresh="loadSave()" />
 
       <SummaryCards :server-state="serverState" :format-number="formatNumber" />

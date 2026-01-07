@@ -3,6 +3,7 @@ import { dbPlugin } from './plugins/db.js';
 import { healthRoutes } from './routes/health.js';
 import { saveRoutes } from './routes/save.js';
 import { opsRoutes } from './routes/ops.js';
+import { authRoutes } from './routes/auth.js';
 import { BadRequestError, VersionConflictError } from './utils/errors.js';
 
 export function buildApp() {
@@ -10,6 +11,7 @@ export function buildApp() {
 
     app.register(dbPlugin);
     app.register(healthRoutes);
+    app.register(authRoutes);
     app.register(saveRoutes);
     app.register(opsRoutes);
 

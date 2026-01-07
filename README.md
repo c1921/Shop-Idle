@@ -107,3 +107,23 @@ npm run dev
 - `npm run build` 构建
 - `npm run start` 启动生产构建
 - `npm run reset:demo -- --yes` 重置 demo 存档（仅允许 `NODE_ENV=development`）
+
+## OAuth Login (LinuxDO Connect)
+
+Backend env vars (required):
+- `LINUXDO_CLIENT_ID`
+- `LINUXDO_CLIENT_SECRET`
+- `LINUXDO_REDIRECT_URI` (dev can be http, production must be https)
+- `JWT_SECRET`
+- `FRONTEND_URL`
+
+Auth endpoints:
+- `GET /auth/linuxdo/login` redirect to LinuxDO authorize
+- `GET /auth/linuxdo/callback` OAuth2 callback
+
+API notes:
+- `GET /save` and `POST /ops` now require `Authorization: Bearer <token>`
+- Frontend login flow redirects back to `${FRONTEND_URL}/auth/callback?token=...`
+
+Security note:
+- Only allow http callback URLs in development. Use https in production for both `LINUXDO_REDIRECT_URI` and `FRONTEND_URL`.

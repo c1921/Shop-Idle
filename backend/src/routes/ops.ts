@@ -1,12 +1,17 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { applyOpWithTx } from '../services/ops.service.js';
-import { DEMO_USER_ID } from '../services/demoUser.service.js';
 import type { OpRequest, OpResponse } from '../types/http.js';
 import type { OpPayload, OpType } from '../types/game.js';
 import { BadRequestError, VersionConflictError } from '../utils/errors.js';
+import { getUserIdFromRequest } from '../utils/auth.js';
 
 export const opsRoutes: FastifyPluginAsync = async (app) => {
     app.post('/ops', async (req, reply) => {
+        const userId = getUserIdFromRequest(req);
+        if (!userId) {
+            return reply.code(401).send({ error: 'unauthorized' });
+        }
+
         const body = (req.body ?? {}) as Partial<OpRequest>;
 
         const opId = body?.opId as string;
@@ -19,7 +24,7 @@ export const opsRoutes: FastifyPluginAsync = async (app) => {
         }
 
         try {
-            const result: OpResponse = await applyOpWithTx(DEMO_USER_ID, {
+            const result: OpResponse = await applyOpWithTx(userId, {
                 opId,
                 baseVersion,
                 type: type as OpType,

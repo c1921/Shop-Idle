@@ -1,7 +1,18 @@
+import { getAuthToken } from './auth'
 import type { OpConflictResponse, OpRequest, OpResponse, SaveResponse } from './types'
 
+function buildAuthHeaders(): Record<string, string> {
+  const token = getAuthToken()
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
 export async function fetchSave(): Promise<SaveResponse> {
-  const response = await fetch('/api/save')
+  const response = await fetch('/api/save', {
+    headers: buildAuthHeaders(),
+  })
+  if (response.status === 401) {
+    throw new Error('Unauthorized. Please log in.')
+  }
   if (!response.ok) {
     throw new Error(`GET /api/save failed: ${response.status}`)
   }
@@ -15,6 +26,7 @@ export async function postOp(
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      ...buildAuthHeaders(),
     },
     body: JSON.stringify(request),
   })
@@ -24,6 +36,10 @@ export async function postOp(
       status: 'conflict',
       data: (await response.json()) as OpConflictResponse,
     }
+  }
+
+  if (response.status === 401) {
+    throw new Error('Unauthorized. Please log in.')
   }
 
   if (!response.ok) {
