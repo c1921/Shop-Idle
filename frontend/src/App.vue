@@ -111,6 +111,7 @@ const restock = async (skuId: SKUId) => {
 let refreshTimer: number | undefined
 
 onMounted(() => {
+  setTimeout(() => window.HSStaticMethods.autoInit(), 100)
   void loadSave()
   refreshTimer = window.setInterval(() => {
     if (document.hidden || isRefreshing.value || isSubmitting.value || isLoading.value) {
@@ -128,291 +129,114 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <main class="app">
-    <header class="hero">
-      <div>
-        <p class="eyebrow">Shop Idle</p>
-        <h1>Mini Market</h1>
-        <p class="subtext">Restock fast, sell steadily, check in anytime.</p>
-      </div>
-      <button type="button" class="ghost" :disabled="isLoading" @click="() => loadSave()">
-        Refresh
-      </button>
-    </header>
+  <main class="min-h-screen bg-base-100 text-base-content">
+    <div class="mx-auto flex w-full max-w-5xl flex-col gap-6 px-6 pb-12 pt-8">
+      <header class="flex items-center justify-between">
+        <button type="button" class="btn" :disabled="isLoading" @click="() => loadSave()">
+          Refresh
+        </button>
+        <span class="badge badge-outline">v{{ serverVersion ?? '...' }}</span>
+      </header>
 
-    <section class="summary">
-      <div class="tile">
-        <span>Cash</span>
-        <strong>{{ formatNumber(serverState?.cash) }}</strong>
-      </div>
-      <div class="tile">
-        <span>Revenue</span>
-        <strong>{{ formatNumber(serverState?.stats?.revenue) }}</strong>
-      </div>
-      <div class="tile">
-        <span>Cost</span>
-        <strong>{{ formatNumber(serverState?.stats?.cost) }}</strong>
-      </div>
-    </section>
-
-    <section class="grid">
-      <article v-for="sku in SKUS" :key="sku.id" class="card">
-        <div class="card-head">
-          <div>
-            <h3>{{ sku.name }}</h3>
-            <p>Buy {{ sku.buyCost }} · Sell {{ sku.sellPrice }}</p>
-          </div>
-          <div class="badge">SKU</div>
+      <section class="grid gap-4 md:grid-cols-3">
+        <div class="rounded-box bg-base-200 p-5">
+          <p class="text-xs uppercase tracking-wide text-base-content/60">Cash</p>
+          <p class="mt-2 text-2xl font-semibold">{{ formatNumber(serverState?.cash) }}</p>
         </div>
-        <div class="card-body">
-          <p class="statline">
-            <span>Stock</span>
-            <strong>{{ formatNumber(serverState?.inventory?.[sku.id]) }}</strong>
-          </p>
-          <p class="statline">
-            <span>Sold</span>
-            <strong>{{ formatNumber(serverState?.stats?.sold?.[sku.id]) }}</strong>
-          </p>
+        <div class="rounded-box bg-base-200 p-5">
+          <p class="text-xs uppercase tracking-wide text-base-content/60">Revenue</p>
+          <p class="mt-2 text-2xl font-semibold">{{ formatNumber(serverState?.stats?.revenue) }}</p>
         </div>
-        <div class="restock">
-          <input
-            v-model.number="restockQty[sku.id]"
-            type="number"
-            min="1"
-            step="1"
-            inputmode="numeric"
-          />
-          <button
-            type="button"
-            :disabled="isLoading || isSubmitting || isInsufficientCash(sku.id)"
-            :class="{ 'is-insufficient': isInsufficientCash(sku.id) }"
-            @click="restock(sku.id)"
-          >
-            Restock
-          </button>
+        <div class="rounded-box bg-base-200 p-5">
+          <p class="text-xs uppercase tracking-wide text-base-content/60">Cost</p>
+          <p class="mt-2 text-2xl font-semibold">{{ formatNumber(serverState?.stats?.cost) }}</p>
         </div>
-      </article>
-    </section>
+      </section>
 
-    <section class="meta">
-      <div class="meta-row">
-        <span>Customer rate</span>
-        <strong>{{ formatNumber(serverState?.customer?.ratePerMinute) }}/min</strong>
-      </div>
-      <div class="meta-row">
-        <span>Carry</span>
-        <strong>{{ serverState ? serverState.customer.carry.toFixed(2) : '...' }}</strong>
-      </div>
-      <div class="meta-row">
-        <span>Last tick</span>
-        <strong>{{ formatDateTime(serverState?.customer?.lastTickAt) }}</strong>
-      </div>
-      <div class="meta-row">
-        <span>Server time</span>
-        <strong>{{ formatDateTime(serverTime) }}</strong>
-      </div>
-      <div class="meta-row">
-        <span>Version</span>
-        <strong>{{ serverVersion ?? '...' }}</strong>
-      </div>
-      <div class="meta-row">
-        <span>Last seen</span>
-        <strong>{{ formatDateTime(lastSeenAt) }}</strong>
-      </div>
-    </section>
+      <section class="rounded-box w-full overflow-x-auto bg-base-200 p-4">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>SKU</th>
+              <th>Buy</th>
+              <th>Sell</th>
+              <th>Stock</th>
+              <th>Sold</th>
+              <th>Qty</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="sku in SKUS" :key="sku.id" class="row-hover">
+              <td class="font-semibold">{{ sku.name }}</td>
+              <td>{{ sku.buyCost }}</td>
+              <td>{{ sku.sellPrice }}</td>
+              <td>{{ formatNumber(serverState?.inventory?.[sku.id]) }}</td>
+              <td>{{ formatNumber(serverState?.stats?.sold?.[sku.id]) }}</td>
+              <td class="w-32">
+                <input
+                  v-model.number="restockQty[sku.id]"
+                  type="number"
+                  min="1"
+                  step="1"
+                  inputmode="numeric"
+                  class="input h-9 w-full text-sm"
+                />
+              </td>
+              <td>
+                <button
+                  type="button"
+                  class="btn h-9 px-3 text-sm"
+                  :disabled="isLoading || isSubmitting || isInsufficientCash(sku.id)"
+                  :class="
+                    // 注意：发送中/加载中保持主按钮样式，避免禁用样式闪烁；仅余额不足时变灰。
+                    isInsufficientCash(sku.id)
+                      ? 'bg-base-300 text-base-content/40'
+                      : 'bg-primary text-primary-content disabled:bg-primary disabled:text-primary-content disabled:opacity-100'
+                  "
+                  @click="restock(sku.id)"
+                >
+                  Restock
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
 
-    <p v-if="uiMessage" class="message">{{ uiMessage }}</p>
+      <section class="rounded-box grid gap-3 bg-base-200 p-6 md:grid-cols-2">
+        <div class="flex items-center justify-between gap-3 rounded-field bg-base-100 px-3 py-2 text-sm">
+          <span class="text-base-content/70">Customer rate</span>
+          <span class="font-semibold">{{ formatNumber(serverState?.customer?.ratePerMinute) }}/min</span>
+        </div>
+        <div class="flex items-center justify-between gap-3 rounded-field bg-base-100 px-3 py-2 text-sm">
+          <span class="text-base-content/70">Carry</span>
+          <span class="font-semibold">{{ serverState ? serverState.customer.carry.toFixed(2) : '...' }}</span>
+        </div>
+        <div class="flex items-center justify-between gap-3 rounded-field bg-base-100 px-3 py-2 text-sm">
+          <span class="text-base-content/70">Last tick</span>
+          <span class="font-semibold">{{ formatDateTime(serverState?.customer?.lastTickAt) }}</span>
+        </div>
+        <div class="flex items-center justify-between gap-3 rounded-field bg-base-100 px-3 py-2 text-sm">
+          <span class="text-base-content/70">Server time</span>
+          <span class="font-semibold">{{ formatDateTime(serverTime) }}</span>
+        </div>
+        <div class="flex items-center justify-between gap-3 rounded-field bg-base-100 px-3 py-2 text-sm">
+          <span class="text-base-content/70">Version</span>
+          <span class="font-semibold">{{ serverVersion ?? '...' }}</span>
+        </div>
+        <div class="flex items-center justify-between gap-3 rounded-field bg-base-100 px-3 py-2 text-sm">
+          <span class="text-base-content/70">Last seen</span>
+          <span class="font-semibold">{{ formatDateTime(lastSeenAt) }}</span>
+        </div>
+      </section>
+
+      <p
+        v-if="uiMessage"
+        class="bg-error/10 px-4 py-3 text-sm font-semibold text-error"
+      >
+        {{ uiMessage }}
+      </p>
+    </div>
   </main>
 </template>
-
-<style scoped>
-.app {
-  max-width: 980px;
-  margin: 3.5rem auto 5rem;
-  padding: 0 1.5rem;
-  display: grid;
-  gap: 2rem;
-}
-
-.hero {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1.5rem;
-}
-
-.eyebrow {
-  margin: 0;
-  font-size: 0.85rem;
-  text-transform: uppercase;
-  letter-spacing: 0.2em;
-  color: var(--muted);
-}
-
-h1 {
-  margin: 0.35rem 0 0.5rem;
-  font-size: clamp(2.4rem, 3vw, 3.2rem);
-  letter-spacing: -0.02em;
-}
-
-.subtext {
-  margin: 0;
-  color: var(--muted);
-  font-size: 1rem;
-}
-
-.ghost {
-  border-radius: 999px;
-  padding: 0.65rem 1.4rem;
-  border: 1px solid var(--line);
-  background: transparent;
-  color: var(--text);
-  font-weight: 600;
-}
-
-.summary {
-  display: grid;
-  gap: 1rem;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-}
-
-.tile {
-  padding: 1.25rem 1.5rem;
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.8);
-  border: 1px solid var(--line);
-  display: grid;
-  gap: 0.35rem;
-}
-
-.tile span {
-  color: var(--muted);
-  font-size: 0.9rem;
-}
-
-.tile strong {
-  font-size: 1.6rem;
-}
-
-.grid {
-  display: grid;
-  gap: 1.5rem;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-}
-
-.card {
-  padding: 1.5rem;
-  border-radius: 20px;
-  border: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.9);
-  display: grid;
-  gap: 1.2rem;
-  box-shadow: var(--shadow);
-}
-
-.card-head {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.card-head h3 {
-  margin: 0 0 0.25rem;
-  font-size: 1.3rem;
-}
-
-.card-head p {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.95rem;
-}
-
-.badge {
-  align-self: flex-start;
-  padding: 0.2rem 0.6rem;
-  border-radius: 999px;
-  background: var(--accent-soft);
-  color: var(--accent);
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-}
-
-.card-body {
-  display: grid;
-  gap: 0.5rem;
-}
-
-.statline {
-  margin: 0;
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.95rem;
-}
-
-.restock {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 0.75rem;
-}
-
-.restock input {
-  padding: 0.6rem 0.75rem;
-  border-radius: 10px;
-  border: 1px solid var(--line);
-  font-size: 0.95rem;
-}
-
-.restock button {
-  border-radius: 10px;
-  border: none;
-  padding: 0.65rem 1.1rem;
-  background: var(--accent);
-  color: #ffffff;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.restock button.is-insufficient {
-  background: #c0c0c0;
-  color: #f8f8f8;
-  cursor: not-allowed;
-}
-
-.restock button:disabled {
-  opacity: 1;
-  cursor: default;
-}
-
-.meta {
-  border-radius: 18px;
-  border: 1px solid var(--line);
-  padding: 1.25rem 1.5rem;
-  background: rgba(255, 255, 255, 0.7);
-  display: grid;
-  gap: 0.5rem;
-}
-
-.meta-row {
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.95rem;
-}
-
-.message {
-  margin: 0;
-  color: var(--danger);
-  font-weight: 600;
-}
-
-@media (max-width: 720px) {
-  .hero {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .ghost {
-    width: fit-content;
-  }
-}
-</style>
