@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { getAuthToken, setAuthToken } from './auth'
+import { clearAuthToken, getAuthToken, setAuthToken } from './auth'
 import { fetchSave, postOp } from './api'
 import type { GameState, SKUId } from './types'
 import HeaderBar from './components/HeaderBar.vue'
+import LoginView from './components/LoginView.vue'
 import SummaryCards from './components/SummaryCards.vue'
 import SkuTable from './components/SkuTable.vue'
 import MetaInfo from './components/MetaInfo.vue'
@@ -23,6 +24,8 @@ const lastSeenAt = ref<string | null>(null)
 const authToken = ref<string | null>(getAuthToken())
 const loginUrl = '/api/auth/linuxdo/login'
 const isAuthed = computed(() => Boolean(authToken.value))
+const currentPath = ref<string>(window.location.pathname)
+const isLoginPage = computed(() => currentPath.value === '/login')
 
 const restockQty = ref<Record<SKUId, number>>({
   apple: 1,
@@ -124,6 +127,26 @@ const restock = async (skuId: SKUId) => {
 }
 
 let refreshTimer: number | undefined
+const updatePath = () => {
+  currentPath.value = window.location.pathname
+}
+const ensureLoginRoute = () => {
+  if (!authToken.value && window.location.pathname !== '/login') {
+    window.history.replaceState({}, '', '/login')
+    updatePath()
+  }
+}
+const onPopState = () => {
+  updatePath()
+  ensureLoginRoute()
+}
+
+const logout = () => {
+  clearAuthToken()
+  authToken.value = null
+  window.history.replaceState({}, '', '/login')
+  updatePath()
+}
 
 onMounted(() => {
   setTimeout(() => window.HSStaticMethods.autoInit(), 100)
@@ -133,7 +156,12 @@ onMounted(() => {
     setAuthToken(token)
     authToken.value = token
     window.history.replaceState({}, '', '/')
+    updatePath()
+  } else if (authToken.value && window.location.pathname === '/login') {
+    window.history.replaceState({}, '', '/')
+    updatePath()
   }
+  ensureLoginRoute()
   void loadSave()
   refreshTimer = window.setInterval(() => {
     if (document.hidden || isRefreshing.value || isSubmitting.value || isLoading.value) {
@@ -141,26 +169,24 @@ onMounted(() => {
     }
     void loadSave({ silent: true })
   }, AUTO_REFRESH_MS)
+  window.addEventListener('popstate', onPopState)
 })
 
 onUnmounted(() => {
   if (refreshTimer !== undefined) {
     window.clearInterval(refreshTimer)
   }
+  window.removeEventListener('popstate', onPopState)
 })
 </script>
 
 <template>
-  <main class="min-h-screen bg-base-100 text-base-content">
+  <LoginView v-if="!isAuthed && isLoginPage" :login-url="loginUrl" />
+
+  <main v-else class="min-h-screen bg-base-100 text-base-content">
     <div class="mx-auto flex w-full max-w-5xl flex-col gap-6 px-6 pb-12 pt-8">
-      <div v-if="!isAuthed" class="rounded-box border border-base-300 bg-base-200 p-4">
-        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 class="text-lg font-semibold">Login required</h2>
-            <p class="text-sm opacity-80">Use LinuxDO Connect to load and save your progress.</p>
-          </div>
-          <a class="btn btn-primary" :href="loginUrl">Login with LinuxDO</a>
-        </div>
+      <div v-if="isAuthed" class="flex items-center justify-end">
+        <button type="button" class="btn btn-ghost btn-sm" @click="logout">Logout</button>
       </div>
 
       <HeaderBar :is-loading="isLoading" :server-version="serverVersion" @refresh="loadSave()" />
