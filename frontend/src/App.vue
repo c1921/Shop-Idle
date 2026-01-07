@@ -2,6 +2,11 @@
 import { onMounted, onUnmounted, ref } from 'vue'
 import { fetchSave, postOp } from './api'
 import type { GameState, SKUId } from './types'
+import HeaderBar from './components/HeaderBar.vue'
+import SummaryCards from './components/SummaryCards.vue'
+import SkuTable from './components/SkuTable.vue'
+import MetaInfo from './components/MetaInfo.vue'
+import MessageBanner from './components/MessageBanner.vue'
 
 const AUTO_REFRESH_MS = 1000
 
@@ -131,112 +136,32 @@ onUnmounted(() => {
 <template>
   <main class="min-h-screen bg-base-100 text-base-content">
     <div class="mx-auto flex w-full max-w-5xl flex-col gap-6 px-6 pb-12 pt-8">
-      <header class="flex items-center justify-between">
-        <button type="button" class="btn" :disabled="isLoading" @click="() => loadSave()">
-          Refresh
-        </button>
-        <span class="badge badge-outline">v{{ serverVersion ?? '...' }}</span>
-      </header>
+      <HeaderBar :is-loading="isLoading" :server-version="serverVersion" @refresh="loadSave()" />
 
-      <section class="grid gap-4 md:grid-cols-3">
-        <div class="rounded-box bg-base-200 p-5">
-          <p class="text-xs uppercase tracking-wide text-base-content/60">Cash</p>
-          <p class="mt-2 text-2xl font-semibold">{{ formatNumber(serverState?.cash) }}</p>
-        </div>
-        <div class="rounded-box bg-base-200 p-5">
-          <p class="text-xs uppercase tracking-wide text-base-content/60">Revenue</p>
-          <p class="mt-2 text-2xl font-semibold">{{ formatNumber(serverState?.stats?.revenue) }}</p>
-        </div>
-        <div class="rounded-box bg-base-200 p-5">
-          <p class="text-xs uppercase tracking-wide text-base-content/60">Cost</p>
-          <p class="mt-2 text-2xl font-semibold">{{ formatNumber(serverState?.stats?.cost) }}</p>
-        </div>
-      </section>
+      <SummaryCards :server-state="serverState" :format-number="formatNumber" />
 
-      <section class="rounded-box w-full overflow-x-auto bg-base-200 p-4">
-        <table class="table">
-          <thead>
-            <tr>
-              <th>SKU</th>
-              <th>Buy</th>
-              <th>Sell</th>
-              <th>Stock</th>
-              <th>Sold</th>
-              <th>Qty</th>
-              <th>Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="sku in SKUS" :key="sku.id" class="row-hover">
-              <td class="font-semibold">{{ sku.name }}</td>
-              <td>{{ sku.buyCost }}</td>
-              <td>{{ sku.sellPrice }}</td>
-              <td>{{ formatNumber(serverState?.inventory?.[sku.id]) }}</td>
-              <td>{{ formatNumber(serverState?.stats?.sold?.[sku.id]) }}</td>
-              <td class="w-32">
-                <input
-                  v-model.number="restockQty[sku.id]"
-                  type="number"
-                  min="1"
-                  step="1"
-                  inputmode="numeric"
-                  class="input h-9 w-full text-sm"
-                />
-              </td>
-              <td>
-                <button
-                  type="button"
-                  class="btn h-9 px-3 text-sm"
-                  :disabled="isLoading || isSubmitting || isInsufficientCash(sku.id)"
-                  :class="
-                    // 注意：发送中/加载中保持主按钮样式，避免禁用样式闪烁；仅余额不足时变灰。
-                    isInsufficientCash(sku.id)
-                      ? 'bg-base-300 text-base-content/40'
-                      : 'bg-primary text-primary-content disabled:bg-primary disabled:text-primary-content disabled:opacity-100'
-                  "
-                  @click="restock(sku.id)"
-                >
-                  Restock
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </section>
+      <SkuTable
+        :skus="SKUS"
+        :server-state="serverState"
+        :restock-qty="restockQty"
+        :is-loading="isLoading"
+        :is-submitting="isSubmitting"
+        :is-insufficient-cash="isInsufficientCash"
+        :format-number="formatNumber"
+        @update-qty="(skuId, qty) => (restockQty[skuId] = qty)"
+        @restock="restock"
+      />
 
-      <section class="rounded-box grid gap-3 bg-base-200 p-6 md:grid-cols-2">
-        <div class="flex items-center justify-between gap-3 rounded-field bg-base-100 px-3 py-2 text-sm">
-          <span class="text-base-content/70">Customer rate</span>
-          <span class="font-semibold">{{ formatNumber(serverState?.customer?.ratePerMinute) }}/min</span>
-        </div>
-        <div class="flex items-center justify-between gap-3 rounded-field bg-base-100 px-3 py-2 text-sm">
-          <span class="text-base-content/70">Carry</span>
-          <span class="font-semibold">{{ serverState ? serverState.customer.carry.toFixed(2) : '...' }}</span>
-        </div>
-        <div class="flex items-center justify-between gap-3 rounded-field bg-base-100 px-3 py-2 text-sm">
-          <span class="text-base-content/70">Last tick</span>
-          <span class="font-semibold">{{ formatDateTime(serverState?.customer?.lastTickAt) }}</span>
-        </div>
-        <div class="flex items-center justify-between gap-3 rounded-field bg-base-100 px-3 py-2 text-sm">
-          <span class="text-base-content/70">Server time</span>
-          <span class="font-semibold">{{ formatDateTime(serverTime) }}</span>
-        </div>
-        <div class="flex items-center justify-between gap-3 rounded-field bg-base-100 px-3 py-2 text-sm">
-          <span class="text-base-content/70">Version</span>
-          <span class="font-semibold">{{ serverVersion ?? '...' }}</span>
-        </div>
-        <div class="flex items-center justify-between gap-3 rounded-field bg-base-100 px-3 py-2 text-sm">
-          <span class="text-base-content/70">Last seen</span>
-          <span class="font-semibold">{{ formatDateTime(lastSeenAt) }}</span>
-        </div>
-      </section>
+      <MetaInfo
+        :server-state="serverState"
+        :server-version="serverVersion"
+        :server-time="serverTime"
+        :last-seen-at="lastSeenAt"
+        :format-number="formatNumber"
+        :format-date-time="formatDateTime"
+      />
 
-      <p
-        v-if="uiMessage"
-        class="bg-error/10 px-4 py-3 text-sm font-semibold text-error"
-      >
-        {{ uiMessage }}
-      </p>
+      <MessageBanner :message="uiMessage" />
     </div>
   </main>
 </template>
