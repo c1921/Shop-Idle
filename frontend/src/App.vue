@@ -22,7 +22,7 @@ const serverVersion = ref<number | null>(null)
 const serverTime = ref<string | null>(null)
 const lastSeenAt = ref<string | null>(null)
 const authToken = ref<string | null>(getAuthToken())
-const loginUrl = '/api/auth/linuxdo/login'
+const loginUrl = '/auth/linuxdo/login'
 const isAuthed = computed(() => Boolean(authToken.value))
 const currentPath = ref<string>(window.location.pathname)
 const isLoginPage = computed(() => currentPath.value === '/login')
