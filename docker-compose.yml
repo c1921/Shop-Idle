@@ -1,3 +1,5 @@
+version: "1.0"
+
 services:
   db:
     image: postgres:16
@@ -6,9 +8,30 @@ services:
       POSTGRES_USER: shop
       POSTGRES_PASSWORD: shop_pw
       POSTGRES_DB: shop_idle
-    ports:
-      - "5432:5432"
     volumes:
-      - shop_idle_pgdata:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  backend:
+    container_name: shop_idle_backend
+    build:
+      context: ./backend
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgres://shop:shop_pw@db:5432/shop_idle
+
+      LINUXDO_CLIENT_ID: ${LINUXDO_CLIENT_ID}
+      LINUXDO_CLIENT_SECRET: ${LINUXDO_CLIENT_SECRET}
+      LINUXDO_REDIRECT_URI: ${LINUXDO_REDIRECT_URI}
+
+      JWT_SECRET: ${JWT_SECRET}
+      FRONTEND_URL: ${FRONTEND_URL}
+    depends_on:
+      - db
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
 volumes:
-  shop_idle_pgdata:
+  pgdata:
