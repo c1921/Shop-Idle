@@ -7,6 +7,11 @@ type JwtPayload = {
     [key: string]: unknown;
 };
 
+type JwtPayloadInput = {
+    sub: string;
+    [key: string]: unknown;
+};
+
 function base64UrlEncode(input: string | Buffer): string {
     return Buffer.from(input)
         .toString('base64')
@@ -25,7 +30,7 @@ function base64UrlDecode(input: string): Buffer {
 }
 
 export function signJwt(
-    payload: Omit<JwtPayload, 'iat' | 'exp'>,
+    payload: JwtPayloadInput,
     secret: string,
     expiresInSeconds: number,
 ): string {
@@ -51,7 +56,11 @@ export function verifyJwt(token: string, secret: string): JwtPayload | null {
     const parts = token.split('.');
     if (parts.length !== 3) return null;
 
-    const [headerPart, payloadPart, signaturePart] = parts;
+    const [headerPart, payloadPart, signaturePart] = parts as [
+        string,
+        string,
+        string,
+    ];
     const data = `${headerPart}.${payloadPart}`;
     const expected = base64UrlEncode(
         createHmac('sha256', secret).update(data).digest(),

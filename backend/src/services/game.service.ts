@@ -81,6 +81,9 @@ export function applyCustomerTick(state: GameState, now: Date): GameState {
         }
 
         const chosen = available[Math.floor(Math.random() * available.length)];
+        if (!chosen) {
+            continue;
+        }
         const price = SKUS[chosen].sellPrice;
 
         inventory[chosen] = (inventory[chosen] ?? 0) - 1;
